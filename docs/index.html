@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Auchan Fuel Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  --bg:#f4f6f5; --card:#ffffff; --text:#14201d; --muted:#5b6b66; --line:#d9e0dd; --accent:#0f766e;
+  --c0:#1f77b4; --c1:#1f77b4; --c2:#d95f02; --c3:#d95f02;
+  --buy:#15803d; --buy-bg:#dcfce7; --wait:#b45309; --wait-bg:#fef3c7; --neutral:#475569; --neutral-bg:#e2e8f0;
+  --warn-bg:#fff1d6; --warn:#7a4a00; --info-bg:#e0f2fe; --info:#075985;
+  --low:#15803d; --high:#b91c1c; --star:#f5b301;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1514; --card:#17211f; --text:#e6efec; --muted:#9bb0aa; --line:#2b3a37; --accent:#2dd4bf;
+    --c0:#5aaaf0; --c1:#5aaaf0; --c2:#ff9b4a; --c3:#ff9b4a;
+    --buy:#4ade80; --buy-bg:#12361f; --wait:#fbbf24; --wait-bg:#3a2b08; --neutral:#cbd5e1; --neutral-bg:#26313b;
+    --warn-bg:#3a2b08; --warn:#fcd34d; --info-bg:#0c2a3d; --info:#7dd3fc;
+    --low:#4ade80; --high:#f87171;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+main{max-width:560px;margin:0 auto;padding:12px 14px 28px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 10px}
+h1{font-size:1.15rem;margin:0}
+#updated{color:var(--muted);font-size:.8rem;display:block}
+#refresh{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:50%;width:40px;height:40px;font-size:1.2rem}
+#refresh.spin{opacity:.5}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:10px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);font-size:1rem;padding:9px;border-radius:9px;font-weight:600}
+.seg button.active{background:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.seg button.active{color:#06201c}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.verdict .badge{display:inline-block;font-weight:800;letter-spacing:.04em;font-size:1.5rem;padding:4px 14px;border-radius:10px}
+.verdict.buy .badge{background:var(--buy-bg);color:var(--buy)}
+.verdict.wait .badge{background:var(--wait-bg);color:var(--wait)}
+.verdict.neutral .badge,.verdict.nodata .badge{background:var(--neutral-bg);color:var(--neutral)}
+#vtitle{font-weight:700;margin:10px 0 2px}
+#vreason{margin:0 0 8px;color:var(--muted);font-size:.92rem}
+#vwhere{margin:0;font-weight:600;font-size:.95rem}
+.tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:flex;flex-direction:column}
+.tile span{color:var(--muted);font-size:.75rem}
+.tile b{font-size:1.02rem}
+.tile small{color:var(--muted);font-size:.7rem;min-height:1em}
+.chartbox{touch-action:pan-y;user-select:none}
+svg.chart{width:100%;height:auto;display:block}
+.grid{stroke:var(--line);stroke-width:1}
+.axis{fill:var(--muted);font-size:10px}
+.gap{fill:var(--muted);opacity:.15}
+.line{fill:none;stroke-width:2;stroke-linejoin:round}
+.line.dash{stroke-dasharray:6 4}
+.dot{stroke:none}
+.s0{stroke:var(--c0);fill:var(--c0)} .s1{stroke:var(--c1);fill:var(--c1)} .s2{stroke:var(--c2);fill:var(--c2)} .s3{stroke:var(--c3);fill:var(--c3)}
+.line.s0,.line.s1,.line.s2,.line.s3{fill:none}
+.mk-low{fill:var(--low)} .mk-high{fill:var(--high)}
+.mk-star{fill:var(--star);stroke:#000;stroke-width:1;stroke-opacity:.6}
+.cross{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+#readout{font-size:.8rem;color:var(--muted);margin:8px 0 6px;min-height:2.4em}
+#legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lg i{display:inline-block;width:20px;height:0;border-top:3px solid}
+.lg i.s0,.lg i.s1{border-color:var(--c0)} .lg i.s2,.lg i.s3{border-color:var(--c2)}
+.lg i.dash{border-top-style:dashed}
+.banner{border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:.88rem}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}
+.banner.info{background:var(--info-bg);color:var(--info)}
+footer{color:var(--muted);font-size:.75rem;text-align:center;margin-top:6px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>⛽ Auchan fuel · Dunakeszi &amp; Fót</h1><span id="updated"></span></div>
+    <button id="refresh" aria-label="Refresh">↻</button>
+  </header>
+  <div id="banners"></div>
+  <div class="seg" id="fuelSwitch" role="group" aria-label="Fuel type">
+    <button data-fuel="95">95</button><button data-fuel="premium">Pro 100</button>
+  </div>
+  <section id="verdict" class="card verdict nodata">
+    <span class="badge" id="vbadge">…</span>
+    <div id="vtitle">Loading…</div>
+    <p id="vreason"></p>
+    <p id="vwhere"></p>
+  </section>
+  <section class="tiles" id="tiles"></section>
+  <section class="card">
+    <div class="chartbox" id="chart"></div>
+    <div id="readout"></div>
+    <div id="legend"></div>
+  </section>
+  <footer>Advice is a simple rule on the last 30 days of prices, not a forecast.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
