@@ -1,0 +1,26 @@
+{
+  "stations": {
+    "dunakeszi": {
+      "name": "Dunakeszi",
+      "url": "https://auchan.hu/benzinkutak/mh-auchan-dunakeszi-benzinkut"
+    },
+    "fot": {
+      "name": "Fót",
+      "url": "https://auchan.hu/benzinkutak/mh-auchan-fot-benzinkut"
+    }
+  },
+  "fuel_labels": {
+    "95": ["95"],
+    "premium": ["Pro 100", "Pro100"]
+  },
+  "window_days": 30,
+  "timezone": "Europe/Budapest",
+  "request_timeout_s": 30,
+  "retries": 3,
+  "retry_delay_s": 20,
+  "pause_between_stations_s": 5,
+  "use_browser_fallback": true,
+  "price_min_huf": 300,
+  "price_max_huf": 1500,
+  "user_agent": "PersonalFuelTracker/2.0 (one request per page per day; personal use)"
+}
