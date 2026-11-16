@@ -1,0 +1,56 @@
+name: Daily fuel price scrape
+
+on:
+  schedule:
+    # Cron is in UTC. 07:23 UTC = 08:23 Budapest in winter, 09:23 in summer.
+    # (An odd minute avoids the busy top-of-the-hour queue.)
+    - cron: "23 7 * * *"
+  workflow_dispatch:   # lets you press "Run workflow" manually
+
+permissions:
+  contents: write      # needed to commit data/prices.csv
+
+concurrency:
+  group: fuel-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Scrape prices
+        id: scrape
+        continue-on-error: true      # still commit whatever we got, then fail below
+        run: python scrape_job.py
+
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No data changes"
+          else
+            git commit -m "Update prices $(date -u +%F)"
+            git pull --rebase --autostash
+            git push
+          fi
+
+      - name: Mark run as failed if nothing was scraped
+        if: steps.scrape.outcome == 'failure'
+        run: |
+          echo "Scrape failed - see the 'Scrape prices' step."
+          exit 1
