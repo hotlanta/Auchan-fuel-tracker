@@ -3,54 +3,98 @@ name: Daily fuel price scrape
 on:
   schedule:
     # Cron is in UTC. 07:23 UTC = 08:23 Budapest in winter, 09:23 in summer.
-    # (An odd minute avoids the busy top-of-the-hour queue.)
+    # Odd minute avoids top-of-the-hour runner congestion.
     - cron: "23 7 * * *"
-  workflow_dispatch:   # lets you press "Run workflow" manually
+  workflow_dispatch:
 
 permissions:
-  contents: write      # needed to commit data/prices.csv
+  contents: write
 
 concurrency:
-  group: fuel-scrape
+  group: ${{ github.workflow }}-fuel-scrape
   cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
+    defaults:
+      run:
+        shell: bash
 
-      - uses: actions/setup-python@v6
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
+          cache: "pip"
 
-      - name: Install dependencies
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-3.12-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-3.12-
+
+      - name: Install Python dependencies
         run: |
-          pip install -r requirements.txt
-          python -m playwright install --with-deps chromium
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: |
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            python -m playwright install --with-deps chromium
+          else
+            python -m playwright install chromium
+          fi
 
       - name: Scrape prices
         id: scrape
-        continue-on-error: true      # still commit whatever we got, then fail below
+        continue-on-error: true
         run: python scrape_job.py
 
-      - name: Commit data
+      - name: Commit updated data
+        if: steps.scrape.outcome == 'success'
         run: |
+          echo "## Scrape result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run number: ${{ github.run_number }}" >> "$GITHUB_STEP_SUMMARY"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data/
           if git diff --cached --quiet; then
             echo "No data changes"
-          else
-            git commit -m "Update prices $(date -u +%F)"
-            git pull --rebase --autostash
-            git push
+            echo "- Commit: skipped (no changes)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
 
-      - name: Mark run as failed if nothing was scraped
+          git commit -m "Update prices $(date -u +%F) (run #${{ github.run_number }})"
+
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash && git push; then
+              echo "Pushed changes on attempt ${attempt}"
+              echo "- Commit: pushed on attempt ${attempt}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+
+          echo "Failed to push after 3 attempts"
+          echo "- Commit: push failed after 3 attempts" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      - name: Fail if scraper reported hard failure
         if: steps.scrape.outcome == 'failure'
         run: |
-          echo "Scrape failed - see the 'Scrape prices' step."
+          echo "## Scrape result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run number: ${{ github.run_number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Final status: failed (hard scraper error)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Scrape job failed – check the 'Scrape prices' step logs."
           exit 1
