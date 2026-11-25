@@ -2,9 +2,8 @@ name: Daily fuel price scrape
 
 on:
   schedule:
-    # Cron is in UTC. 07:23 UTC = 08:23 Budapest in winter, 09:23 in summer.
-    # Odd minute avoids top-of-the-hour runner congestion.
     - cron: "23 7 * * *"
+      timezone: "Europe/Budapest"
   workflow_dispatch:
 
 permissions:
